@@ -1,0 +1,6 @@
+numpy
+spectrum
+matplotlib
+scipy
+sys
+multiprocessing
