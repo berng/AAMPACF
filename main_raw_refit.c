@@ -116,7 +116,8 @@ int printRaw(struct RadarParm *prm,
 	sprintf(out+strlen(out),"%le ",fit->rng[j].p_0);
 	sprintf(out+strlen(out),"%.0lf ",(double)fit->rng[j].v);
 	sprintf(out+strlen(out),"%.0lf\t",(double)fit->rng[j].w_l);
-	sprintf(out+strlen(out),"%d\t\t",fit->rng[j].qflg);   
+	sprintf(out+strlen(out),"%d\t",fit->rng[j].qflg);   
+	sprintf(out+strlen(out),"%d\t\t",prm->mpinc);   
 //	printf("%s\n",outstart);
 
 
