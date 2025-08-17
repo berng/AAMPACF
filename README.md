@@ -1,6 +1,9 @@
 author: Oleg I.Berngardt, 2025
 license: GPL
 
+version: 1.4
+Fast version - made adaptive initial approximation for fitting P,W . Correct velocity calculation using prm.mpinc interpulse interval instead of 2.4msec. Claculate every sample with fit.qflg>0 and p0>3dB(for modes #<=5) 
+
 version: 0.3
 Added elevation calculations using FITACF xarr.phi0, hdw and calibration coefficients
 
