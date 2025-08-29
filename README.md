@@ -1,6 +1,10 @@
 author: Oleg I.Berngardt, 2025
 license: GPL
 
+
+version: 1.5
+Changed curve_fit to least_squares - program is 30% faster, very small number of errors
+
 version: 1.4
 Fast version - made adaptive initial approximation for fitting P,W . Correct velocity calculation using prm.mpinc interpulse interval instead of 2.4msec. Calculate every sample with fit.qflg==1(for each modes #) and p0>3dB(for modes #<=5) 
 
