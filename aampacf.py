@@ -3,7 +3,9 @@
 # Speed up search -10/-20% to execution time using more close initial approx
 # Use 100 first samples to estimate median initial approximation closer, then apply the to the whole dataset
 # Works well on both radars (i.e. any pulse shapes and geophysical conditions)
-# V1.4: ADDED MPINC dependence (in previous versions it was 2.4msec hardcoded), works well on SuperDARN radars
+# V1.4: ADDED MPINC dependence (in previous versions it was 2.4msec hardcoded)
+# V1.5: changed curve_fit to least_squares - program 30% faster, very small number of errors
+
 import numpy as np
 from spectrum import arma_estimate, arma2psd
 # import pylab
@@ -15,11 +17,13 @@ import scipy.optimize
 from spectrum import arma_estimate, arma2psd
 import multiprocessing
 import time
+
 # ZERO_RIGHT=True
 ZERO_RIGHT=False
 ACF_LEN=119 
 # MPINC=500
 lim=0.1
+
 
 def model(x, *prms, GCount=-1,MeansArray=np.array([-50,3,20])):
     ret = 0
@@ -32,20 +36,27 @@ def model(x, *prms, GCount=-1,MeansArray=np.array([-50,3,20])):
 
 
 
-
-
-
-
 ## search spectrum, calculate maximums exceeding lim level
-def getMaxPos(x,spec,lim=1e-100):
-    res=[]
-    for i in range(1,spec.shape[0]-1):
-        if spec[i-1]<spec[i]>spec[i+1]:
-            res.append([x[i],spec[i]])
-    sorted_res = sorted(res, key=lambda x: x[1], reverse=True)
-    sorted_res=np.array(sorted_res)
-    sorted_res[:,1]=sorted_res[:,1]/sorted_res[:,1].max()
-    return sorted_res[sorted_res[:,1]>lim]
+
+from scipy.signal import find_peaks
+import numpy as np
+
+def getMaxPos(x, spec, lim=1e-100): # gives -0.05 from getMaxPos() time - a bit faster
+
+    peak_indices, _ = find_peaks(spec)
+    if len(peak_indices) == 0: return np.empty((0, 2))
+
+    peak_x = x[peak_indices]
+    peak_y = spec[peak_indices]
+
+    # Объединяем в массив и сортируем по убыванию амплитуды
+    peaks = np.column_stack([peak_x, peak_y])
+    peaks = peaks[peaks[:, 1].argsort()[::-1]]  # сортировка по убыванию
+
+    max_amp = peaks[:, 1].max()
+    if max_amp == 0: return np.empty((0, 2))
+    peaks[:, 1] /= max_amp
+    return peaks[peaks[:, 1] > lim]
 
 
 
@@ -54,7 +65,10 @@ def getMaxPos(x,spec,lim=1e-100):
 
 
 
+from scipy.optimize import least_squares
 
+def residuals(prms, x, y, GCount, MeansArray):
+    return y - model(x, *prms, GCount=GCount, MeansArray=MeansArray)
 
 
 
@@ -100,7 +114,12 @@ def FitA(qflg,st,calculatePW=True,Winit=20.,Pmod=20.):
    try: # maxfev to increase number of itterations - sometimes there are no enough of them and error is generated
 #    print('src:',params)
 #    fitted_params, aa, infodict, _, _  = scipy.optimize.curve_fit(lambda a, *b: model(a, *b, GCount=GCount, MeansArray=MeansArray), x, st, p0=params, bounds=bounds,maxfev=100, full_output=True)
-    fitted_params, aa  = scipy.optimize.curve_fit(lambda a, *b: model(a, *b, GCount=GCount, MeansArray=MeansArray), x, st, p0=params, bounds=bounds,maxfev=100)
+#    fitted_params, aa  = scipy.optimize.curve_fit(lambda a, *b: model(a, *b, GCount=GCount, MeansArray=MeansArray), x, st, p0=params, bounds=bounds,maxfev=100)
+    res = least_squares(residuals, params, args=(x, st, GCount, MeansArray),
+###                    bounds=(bounds[0], bounds[1]), ftol=1e-4, xtol=1e-4, max_nfev=100)
+                    bounds=bounds, ftol=1e-4, xtol=1e-4, max_nfev=100) # makes faster 1.5 times in comparision with curve_fit
+    fitted_params = res.x if res.success else params
+
 #    print('itt:',infodict['nfev'],fitted_params)
 #    print('itt:',infodict['nfev'])
    except:
@@ -304,6 +323,7 @@ def AAMPACF(content=""):
 # print('prep data2:',time.time()-start)
 # print(len(data2))
 
+# pool = multiprocessing.Pool(processes=32) #no effect
  pool = multiprocessing.Pool()
 #BUFF=10
 #for j in range(0,len(data2)-BUFF,BUFF):
@@ -329,6 +349,7 @@ def AAMPACF(content=""):
 # data_out=pool.map(fastMapProcess,data2) #seq
  start=time.time()
  data_out=pool.map(fastMapProcess(Winit=Winit,Pmod=Pinit),data2) #parallel
+# data_out=map(fastMapProcess(Winit=Winit,Pmod=Pinit),data2) #sequential
 # data_out=pool.map(fastMapProcess(Winit=1.1,Pmod=1.1),data2) #parallel
  stats=list(data_out)
 # print('executed:',time.time()-start)
